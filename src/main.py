@@ -222,7 +222,7 @@ class TradingBot:
                 self.logger.debug(f"Mum kapandı: {kline.get('c')}")
                 
                 # Trading döngüsünü ayrı thread'de çalıştır
-                thread = threading.Thread(target=self._run_trading_loop)
+                thread = threading.Thread(target=self._run_trading_loop, daemon=True)
                 thread.start()
                 
         except Exception as e:

@@ -57,7 +57,7 @@ class TestTradingBotKlineUpdate:
                 bot._on_kline_update(kline_data)
                 
                 # Thread oluşturuldu mu?
-                mock_thread.assert_called_once_with(target=bot._run_trading_loop)
+                mock_thread.assert_called_once_with(target=bot._run_trading_loop, daemon=True)
                 # Thread başlatıldı mı?
                 mock_thread_instance.start.assert_called_once()
     
@@ -269,7 +269,7 @@ class TestIntegrationKlineCallback:
             bot._on_kline_update(kline_data)
             
             # Thread'in çalışmasını bekle
-            result = trading_loop_called.wait(timeout=2.0)
+            result = trading_loop_called.wait(timeout=0.5)
             
             # Trading loop çağrıldı mı?
             assert result is True, "Trading loop çağrılmadı"
