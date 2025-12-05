@@ -297,10 +297,10 @@ class TradingBot:
             return
         
         if signal.signal.value == 'BUY':
-            self.logger.info(f"🟢 LONG sinyali tespit edildi! Confidence: {signal.confidence:.2f}")
+            self.logger.info(f"[LONG] LONG sinyali tespit edildi! Confidence: {signal.confidence:.2f}")
             await self._open_position('LONG', signal)
         elif signal.signal.value == 'SELL':
-            self.logger.info(f"🔴 SHORT sinyali tespit edildi! Confidence: {signal.confidence:.2f}")
+            self.logger.info(f"[SHORT] SHORT sinyali tespit edildi! Confidence: {signal.confidence:.2f}")
             await self._open_position('SHORT', signal)
     
     async def _open_position(self, side: str, signal) -> None:
