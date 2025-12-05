@@ -71,14 +71,22 @@ ai:
 
 # Strateji Ayarları
 strategy:
-  # Strateji tipi: momentum veya ml
-  type: "ml"
+  # Strateji tipi: momentum, ml veya hybrid
+  type: "hybrid"
   # Zaman dilimi
   timeframe: "15m"
+  # Hibrit strateji ayarları
+  hybrid:
+    momentum_weight: 0.5
+    ml_weight: 0.5
+    min_combined_confidence: 0.45
+    require_agreement: false
+    agreement_bonus: 0.2
+    conflict_penalty: 0.5
   # Momentum stratejisi ayarları
   momentum:
-    rsi_overbought: 70
-    rsi_oversold: 30
+    rsi_overbought: 65
+    rsi_oversold: 35
     macd_signal_period: 9
     volume_multiplier: 1.5
   # ML stratejisi ayarları

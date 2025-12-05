@@ -153,11 +153,23 @@ class TradingBot:
             'take_profit_pct': self.settings.risk.get('take_profit_pct', 4),
             'momentum': strategy_config.get('momentum', {}),
             'ml': strategy_config.get('ml', {}),
+            'hybrid': strategy_config.get('hybrid', {}),
             'ai': self.settings.ai
         }
         
         if strategy_type == 'momentum':
             self.strategy = MomentumStrategy(full_config)
+        elif strategy_type == 'hybrid':
+            from src.strategies.hybrid_strategy import HybridStrategy
+            self.strategy = HybridStrategy(full_config)
+            
+            # Predictor'ı ayarla
+            ai_config = self.settings.ai
+            self.predictor = Predictor(
+                model_type=ai_config.get('model_type', 'lstm'),
+                config=ai_config
+            )
+            self.strategy.set_predictor(self.predictor)
         else:
             # ML stratejisi
             self.strategy = MLStrategy(full_config)
