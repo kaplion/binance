@@ -58,6 +58,9 @@ class HybridStrategy(BaseStrategy):
         self.momentum_strategy = MomentumStrategy(config)
         self.ml_strategy = MLStrategy(config, predictor)
         
+        # Maksimum güven skoru sınırı
+        self.max_confidence = 0.95
+        
         logger.info(
             f"HybridStrategy başlatıldı - "
             f"Momentum Ağırlık: {self.momentum_weight}, "
@@ -156,7 +159,6 @@ class HybridStrategy(BaseStrategy):
         weighted_ml = ml_conf * self.ml_weight
         
         # Uyum durumunu belirle
-        agreement = 'none'
         final_direction = 'neutral'
         confidence_modifier = 1.0
         
@@ -191,7 +193,7 @@ class HybridStrategy(BaseStrategy):
         
         # Final güven skorunu hesapla
         base_confidence = weighted_mom + weighted_ml
-        final_confidence = min(base_confidence * confidence_modifier, 0.95)
+        final_confidence = min(base_confidence * confidence_modifier, self.max_confidence)
         
         # require_agreement kontrolü
         if self.require_agreement and agreement not in ['full']:
