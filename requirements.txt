@@ -15,7 +15,7 @@ ta>=0.10.2
 
 # WebSocket ve Async
 websocket-client>=1.6.0
-aiohttp>=3.8.0
+aiohttp>=3.9.4
 
 # Konfigürasyon
 python-dotenv>=1.0.0
