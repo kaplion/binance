@@ -138,6 +138,7 @@ class MLStrategy(BaseStrategy):
     def _simple_momentum_prediction(self, data: pd.DataFrame) -> Dict[str, Any]:
         """
         Basit momentum bazlı tahmin (fallback).
+        Daha agresif sinyal üretimi için optimize edildi.
         
         Args:
             data: OHLCV DataFrame'i
@@ -152,69 +153,94 @@ class MLStrategy(BaseStrategy):
         recent_closes = df['close'].tail(5)
         momentum = (recent_closes.iloc[-1] - recent_closes.iloc[0]) / recent_closes.iloc[0]
         
-        # Trend yönü
+        # Daha agresif trend skoru
         if current['ema_9'] > current['ema_21'] > current['ema_50']:
-            trend_score = 0.7
+            trend_score = 0.75  # 0.7'den 0.75'e
             trend_direction = 'up'
         elif current['ema_9'] < current['ema_21'] < current['ema_50']:
-            trend_score = 0.7
+            trend_score = 0.75
+            trend_direction = 'down'
+        elif current['ema_9'] > current['ema_21']:
+            trend_score = 0.55  # Yeni - kısa vadeli trend
+            trend_direction = 'up'
+        elif current['ema_9'] < current['ema_21']:
+            trend_score = 0.55
             trend_direction = 'down'
         else:
-            trend_score = 0.3
+            trend_score = 0.35
             trend_direction = 'neutral'
         
-        # RSI bazlı skor
+        # RSI bazlı skor - daha geniş aralık
         rsi = current['rsi']
-        if rsi < 30:
-            rsi_score = 0.8  # Oversold - bullish
+        if rsi < 35:  # 30'dan 35'e
+            rsi_score = 0.75
             rsi_direction = 'up'
-        elif rsi > 70:
-            rsi_score = 0.8  # Overbought - bearish
+        elif rsi > 65:  # 70'den 65'e
+            rsi_score = 0.75
+            rsi_direction = 'down'
+        elif rsi < 45:
+            rsi_score = 0.55
+            rsi_direction = 'up'
+        elif rsi > 55:
+            rsi_score = 0.55
             rsi_direction = 'down'
         else:
-            rsi_score = 0.4
+            rsi_score = 0.40
             rsi_direction = 'neutral'
         
         # MACD bazlı skor
         if current['macd'] > current['macd_signal'] and current['macd_histogram'] > 0:
-            macd_score = 0.6
+            macd_score = 0.65
             macd_direction = 'up'
         elif current['macd'] < current['macd_signal'] and current['macd_histogram'] < 0:
-            macd_score = 0.6
+            macd_score = 0.65
+            macd_direction = 'down'
+        elif current['macd'] > current['macd_signal']:
+            macd_score = 0.50
+            macd_direction = 'up'
+        elif current['macd'] < current['macd_signal']:
+            macd_score = 0.50
             macd_direction = 'down'
         else:
-            macd_score = 0.3
+            macd_score = 0.35
             macd_direction = 'neutral'
         
+        # Momentum bazlı bonus
+        momentum_bonus = 0
+        if abs(momentum) > 0.005:  # %0.5'ten fazla hareket
+            momentum_bonus = 0.1
+        
+        # Yön belirleme - ağırlıklı oylama
+        directions = {
+            'up': 0,
+            'down': 0,
+            'neutral': 0
+        }
+        
+        directions[trend_direction] += trend_score
+        directions[macd_direction] += macd_score
+        directions[rsi_direction] += rsi_score * 0.8  # RSI biraz daha az ağırlık
+        
+        # En yüksek skoru bul
+        max_direction = max(directions, key=directions.get)
+        max_score = directions[max_direction]
+        
+        if max_direction != 'neutral' and max_score > 0.8:
+            direction = max_direction
+            confidence = min((max_score / 2.5) + momentum_bonus, 0.85)  # Normalize et
+        else:
+            direction = 'neutral'
+            confidence = 0.35
+        
         # Fiyat tahmini
-        if momentum > 0.01:
-            predicted_change = momentum * 0.5  # Momentum'un yarısı kadar hareket
-        elif momentum < -0.01:
+        if momentum > 0.005:
+            predicted_change = momentum * 0.5
+        elif momentum < -0.005:
             predicted_change = momentum * 0.5
         else:
             predicted_change = 0
         
         predicted_price = current['close'] * (1 + predicted_change)
-        
-        # Yön belirleme
-        directions = [trend_direction, macd_direction]
-        if rsi < 40:
-            directions.append('up')
-        elif rsi > 60:
-            directions.append('down')
-        
-        up_count = directions.count('up')
-        down_count = directions.count('down')
-        
-        if up_count > down_count:
-            direction = 'up'
-            confidence = (trend_score + macd_score) / 2
-        elif down_count > up_count:
-            direction = 'down'
-            confidence = (trend_score + macd_score) / 2
-        else:
-            direction = 'neutral'
-            confidence = 0.3
         
         return {
             'direction': direction,
@@ -223,7 +249,9 @@ class MLStrategy(BaseStrategy):
             'predicted_change_pct': predicted_change * 100,
             'trend_score': trend_score,
             'rsi_score': rsi_score,
-            'macd_score': macd_score
+            'macd_score': macd_score,
+            'momentum': momentum,
+            'is_fallback': True
         }
     
     def _apply_technical_filters(
@@ -232,7 +260,7 @@ class MLStrategy(BaseStrategy):
         data: pd.DataFrame
     ) -> Dict[str, Any]:
         """
-        Teknik filtreler uygula.
+        Teknik filtreler uygula - yumuşatılmış versiyon.
         
         Args:
             prediction: ML tahmini
@@ -247,41 +275,35 @@ class MLStrategy(BaseStrategy):
         direction = prediction['direction']
         confidence = prediction['confidence']
         
-        # RSI filtresi
+        # RSI filtresi - daha yumuşak
         if self.rsi_filter_enabled:
             rsi = current['rsi']
             
-            if direction == 'up' and rsi > 70:
-                # Overbought - long sinyalini zayıflat
-                confidence *= 0.6
+            if direction == 'up' and rsi > 75:  # 70'den 75'e
+                confidence *= 0.75  # 0.6'dan 0.75'e
                 prediction['filter_reason'] = 'RSI overbought'
-            elif direction == 'down' and rsi < 30:
-                # Oversold - short sinyalini zayıflat
-                confidence *= 0.6
+            elif direction == 'down' and rsi < 25:  # 30'dan 25'e
+                confidence *= 0.75
                 prediction['filter_reason'] = 'RSI oversold'
         
-        # Trend filtresi
+        # Trend filtresi - daha yumuşak
         if self.trend_filter_enabled:
             ema_bullish = current['ema_9'] > current['ema_21']
             
             if direction == 'up' and not ema_bullish:
-                # Trend uyumsuz - sinyali zayıflat
-                confidence *= 0.7
+                confidence *= 0.85  # 0.7'den 0.85'e
             elif direction == 'down' and ema_bullish:
-                # Trend uyumsuz - sinyali zayıflat
-                confidence *= 0.7
+                confidence *= 0.85
         
-        # Bollinger Bands filtresi
+        # Bollinger Bands filtresi - daha yumuşak
         bb_position = (current['close'] - current['bb_lower']) / (
             current['bb_upper'] - current['bb_lower']
         )
         
-        if direction == 'up' and bb_position > 0.9:
-            # Fiyat üst banda çok yakın
-            confidence *= 0.8
-        elif direction == 'down' and bb_position < 0.1:
-            # Fiyat alt banda çok yakın
-            confidence *= 0.8
+        if direction == 'up' and bb_position > 0.95:  # 0.9'dan 0.95'e
+            confidence *= 0.9  # 0.8'den 0.9'a
+        elif direction == 'down' and bb_position < 0.05:  # 0.1'den 0.05'e
+            confidence *= 0.9
         
         prediction['confidence'] = confidence
         prediction['bb_position'] = bb_position

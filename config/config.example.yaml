@@ -56,7 +56,7 @@ ai:
   # Minimum eğitim verisi (mum sayısı)
   min_training_data: 1000
   # Model güven eşiği (0-1 arası)
-  confidence_threshold: 0.6
+  confidence_threshold: 0.40
   # Feature'lar
   features:
     - close
@@ -83,7 +83,7 @@ strategy:
     volume_multiplier: 1.5
   # ML stratejisi ayarları
   ml:
-    min_confidence: 0.65
+    min_confidence: 0.40
     position_sizing_method: "kelly"  # fixed, kelly, volatility
 
 # WebSocket Ayarları
@@ -100,7 +100,7 @@ websocket:
 # Loglama Ayarları
 logging:
   # Log seviyesi: DEBUG, INFO, WARNING, ERROR
-  level: "INFO"
+  level: "DEBUG"
   # Log dosyası yolu
   file_path: "logs/trading.log"
   # Log rotasyonu (MB)

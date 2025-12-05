@@ -247,7 +247,10 @@ class TradingBot:
             df = self._fetch_historical_data(200)
             
             if df.empty:
+                self.logger.warning("Veri boş, trading atlanıyor")
                 return
+            
+            self.logger.debug(f"Veri alındı: {len(df)} mum, son fiyat: {df['close'].iloc[-1]:.2f}")
             
             # Risk kontrolü
             risk_check = self.risk_manager.check_risk_limits()
@@ -257,8 +260,11 @@ class TradingBot:
                     self.logger.warning(warning)
                 return
             
+            self.logger.debug("Risk kontrolü geçti")
+            
             # Mevcut pozisyon kontrol
             has_position = self.position_manager.has_open_position()
+            self.logger.debug(f"Açık pozisyon var mı: {has_position}")
             
             if has_position:
                 # Pozisyon varsa çıkış kontrol
@@ -274,14 +280,27 @@ class TradingBot:
         """Giriş sinyali kontrol et."""
         signal = self.strategy.analyze(df)
         
+        # Detaylı sinyal logu
+        self.logger.info(
+            f"Sinyal analizi - "
+            f"Yön: {signal.signal.value}, "
+            f"Confidence: {signal.confidence:.2f}, "
+            f"Fiyat: {signal.price:.2f}, "
+            f"Neden: {signal.reason}"
+        )
+        
+        if signal.metadata:
+            self.logger.debug(f"Sinyal metadata: {signal.metadata}")
+        
         if not self.strategy.validate_signal(signal):
+            self.logger.debug("Sinyal validasyonu başarısız")
             return
         
         if signal.signal.value == 'BUY':
-            # Long pozisyon aç
+            self.logger.info(f"🟢 LONG sinyali tespit edildi! Confidence: {signal.confidence:.2f}")
             await self._open_position('LONG', signal)
         elif signal.signal.value == 'SELL':
-            # Short pozisyon aç
+            self.logger.info(f"🔴 SHORT sinyali tespit edildi! Confidence: {signal.confidence:.2f}")
             await self._open_position('SHORT', signal)
     
     async def _open_position(self, side: str, signal) -> None:
