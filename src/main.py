@@ -8,6 +8,7 @@ Bu modül, tüm bileşenleri koordine eder ve trading döngüsünü yönetir.
 import asyncio
 import signal
 import sys
+import threading
 from typing import Any, Dict, Optional
 from pathlib import Path
 
@@ -220,11 +221,24 @@ class TradingBot:
             if kline.get('x', False):  # Mum kapandı mı
                 self.logger.debug(f"Mum kapandı: {kline.get('c')}")
                 
-                # Trading döngüsünü çalıştır
-                asyncio.create_task(self._trading_loop())
+                # Trading döngüsünü ayrı thread'de çalıştır
+                thread = threading.Thread(target=self._run_trading_loop, daemon=True)
+                thread.start()
                 
         except Exception as e:
             self.logger.error(f"Kline güncelleme hatası: {e}")
+    
+    def _run_trading_loop(self) -> None:
+        """Trading döngüsünü yeni event loop'ta çalıştır."""
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(self._trading_loop())
+            finally:
+                loop.close()
+        except Exception as e:
+            self.logger.error(f"Trading loop hatası: {e}")
     
     async def _trading_loop(self) -> None:
         """Ana trading döngüsü."""
