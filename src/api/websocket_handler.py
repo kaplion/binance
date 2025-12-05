@@ -207,7 +207,8 @@ class WebSocketHandler:
                 f"Yeniden bağlanma denemesi {attempt + 1}/{self.reconnect_attempts}"
             )
             try:
-                asyncio.sleep(self.reconnect_delay)
+                import time
+                time.sleep(self.reconnect_delay)
                 ws.run_forever()
                 return
             except Exception as e:

@@ -272,11 +272,13 @@ class RiskManager:
             now = datetime.now()
             
             # Günlük/haftalık reset kontrolü
-            if (now - self._last_daily_reset).days >= 1:
+            daily_diff = now - self._last_daily_reset
+            if daily_diff.total_seconds() >= 86400:  # 24 saat
                 self._daily_start_balance = current_balance
                 self._last_daily_reset = now
             
-            if (now - self._last_weekly_reset).days >= 7:
+            weekly_diff = now - self._last_weekly_reset
+            if weekly_diff.total_seconds() >= 604800:  # 7 gün
                 self._weekly_start_balance = current_balance
                 self._last_weekly_reset = now
             

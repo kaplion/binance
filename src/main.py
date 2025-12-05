@@ -353,8 +353,9 @@ class TradingBot:
             )
             
             # Ana döngü
+            import time
             while self._running:
-                asyncio.get_event_loop().run_until_complete(asyncio.sleep(1))
+                time.sleep(1)
                 
         except ValueError as e:
             self.logger.error(f"Konfigürasyon hatası: {e}")

@@ -14,18 +14,19 @@ from src.strategies.momentum_strategy import MomentumStrategy
 from src.strategies.ml_strategy import MLStrategy
 
 
-def generate_test_data(periods: int = 100, trend: str = 'up') -> pd.DataFrame:
+def generate_test_data(periods: int = 100, trend: str = 'up', seed: int = 42) -> pd.DataFrame:
     """
     Test için OHLCV verisi oluştur.
     
     Args:
         periods: Mum sayısı
         trend: 'up', 'down' veya 'sideways'
+        seed: Rastgele sayı üreteci seed'i
         
     Returns:
         OHLCV DataFrame'i
     """
-    np.random.seed(42)
+    rng = np.random.default_rng(seed)
     
     if trend == 'up':
         base_prices = np.linspace(50000, 55000, periods)
@@ -35,13 +36,13 @@ def generate_test_data(periods: int = 100, trend: str = 'up') -> pd.DataFrame:
         base_prices = np.ones(periods) * 52500
     
     # Rastgele dalgalanma ekle
-    noise = np.random.randn(periods) * 100
+    noise = rng.standard_normal(periods) * 100
     close = base_prices + noise
     
-    high = close + np.abs(np.random.randn(periods) * 50)
-    low = close - np.abs(np.random.randn(periods) * 50)
-    open_price = close + np.random.randn(periods) * 30
-    volume = np.random.randint(100, 1000, periods).astype(float)
+    high = close + np.abs(rng.standard_normal(periods) * 50)
+    low = close - np.abs(rng.standard_normal(periods) * 50)
+    open_price = close + rng.standard_normal(periods) * 30
+    volume = rng.integers(100, 1000, size=periods).astype(float)
     
     dates = pd.date_range(
         start=datetime.now() - timedelta(hours=periods),

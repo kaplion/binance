@@ -262,7 +262,7 @@ def round_step_size(quantity: float, step_size: float) -> float:
         Yuvarlanmış miktar
     """
     precision = int(round(-np.log10(step_size), 0))
-    return round(quantity - (quantity % step_size), precision)
+    return round((quantity // step_size) * step_size, precision)
 
 
 def round_tick_size(price: float, tick_size: float) -> float:
@@ -277,7 +277,7 @@ def round_tick_size(price: float, tick_size: float) -> float:
         Yuvarlanmış fiyat
     """
     precision = int(round(-np.log10(tick_size), 0))
-    return round(price - (price % tick_size), precision)
+    return round((price // tick_size) * tick_size, precision)
 
 
 def validate_symbol(symbol: str) -> bool:
