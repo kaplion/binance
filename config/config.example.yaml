@@ -1,0 +1,128 @@
+# Binance Futures AI Trading Bot Konfigürasyonu
+# Bu dosyayı config.yaml olarak kopyalayın ve ayarları yapın
+
+# Binance API Ayarları
+binance:
+  # API anahtarları (.env dosyasından da okunabilir)
+  api_key: "YOUR_API_KEY"
+  api_secret: "YOUR_API_SECRET"
+  # Testnet modu (ilk kurulum için true önerilir)
+  testnet: true
+  # USDT-M veya COIN-M futures
+  futures_type: "usdt_m"  # usdt_m veya coin_m
+
+# Trading Ayarları
+trading:
+  # İşlem yapılacak sembol
+  symbol: "BTCUSDT"
+  # Kaldıraç oranı (1-125 arası)
+  leverage: 10
+  # Pozisyon boyutu (bakiyenin yüzdesi)
+  position_size_pct: 5
+  # Maksimum eşzamanlı pozisyon sayısı
+  max_positions: 3
+  # Margin modu: isolated veya cross
+  margin_mode: "isolated"
+
+# Risk Yönetimi Ayarları
+risk:
+  # Stop-loss yüzdesi
+  stop_loss_pct: 2
+  # Take-profit yüzdesi
+  take_profit_pct: 4
+  # Günlük maksimum kayıp yüzdesi
+  max_daily_loss_pct: 5
+  # Haftalık maksimum kayıp yüzdesi
+  max_weekly_loss_pct: 15
+  # Risk/Reward oranı (minimum)
+  risk_reward_ratio: 2
+  # Trailing stop aktif mi
+  trailing_stop_enabled: true
+  # Trailing stop aktivasyon yüzdesi
+  trailing_stop_activation_pct: 1.5
+  # Trailing stop callback yüzdesi
+  trailing_stop_callback_pct: 0.5
+
+# AI/ML Ayarları
+ai:
+  # Model tipi: lstm veya transformer
+  model_type: "lstm"
+  # Geriye bakış periyodu (mum sayısı)
+  lookback_period: 60
+  # Tahmin ufku (mum sayısı)
+  prediction_horizon: 5
+  # Model yeniden eğitim aralığı (saat)
+  retrain_interval: 24
+  # Minimum eğitim verisi (mum sayısı)
+  min_training_data: 1000
+  # Model güven eşiği (0-1 arası)
+  confidence_threshold: 0.6
+  # Feature'lar
+  features:
+    - close
+    - volume
+    - rsi
+    - macd
+    - bb_upper
+    - bb_lower
+    - ema_9
+    - ema_21
+    - atr
+
+# Strateji Ayarları
+strategy:
+  # Strateji tipi: momentum veya ml
+  type: "ml"
+  # Zaman dilimi
+  timeframe: "15m"
+  # Momentum stratejisi ayarları
+  momentum:
+    rsi_overbought: 70
+    rsi_oversold: 30
+    macd_signal_period: 9
+    volume_multiplier: 1.5
+  # ML stratejisi ayarları
+  ml:
+    min_confidence: 0.65
+    position_sizing_method: "kelly"  # fixed, kelly, volatility
+
+# WebSocket Ayarları
+websocket:
+  # Otomatik yeniden bağlanma
+  auto_reconnect: true
+  # Yeniden bağlanma deneme sayısı
+  reconnect_attempts: 5
+  # Yeniden bağlanma bekleme süresi (saniye)
+  reconnect_delay: 5
+  # Ping aralığı (saniye)
+  ping_interval: 30
+
+# Loglama Ayarları
+logging:
+  # Log seviyesi: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  # Log dosyası yolu
+  file_path: "logs/trading.log"
+  # Log rotasyonu (MB)
+  max_size: 10
+  # Saklanan log dosyası sayısı
+  backup_count: 5
+  # Konsola log yaz
+  console_output: true
+
+# Bildirim Ayarları (opsiyonel)
+notifications:
+  enabled: false
+  # Telegram bildirimleri
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+  # Email bildirimleri
+  email:
+    enabled: false
+    smtp_server: ""
+    smtp_port: 587
+    username: ""
+    password: ""
+    recipient: ""
