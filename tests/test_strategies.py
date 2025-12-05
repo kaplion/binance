@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from src.strategies.base_strategy import BaseStrategy, Signal, TradeSignal
 from src.strategies.momentum_strategy import MomentumStrategy
 from src.strategies.ml_strategy import MLStrategy
+from src.strategies.hybrid_strategy import HybridStrategy
 
 
 def generate_test_data(periods: int = 100, trend: str = 'up', seed: int = 42) -> pd.DataFrame:
@@ -355,6 +356,239 @@ class TestBacktest:
         
         # 50'den az veri olduğunda trade yapılmaz
         assert results['total_trades'] == 0
+
+
+class TestHybridStrategy:
+    """HybridStrategy sınıfı testleri."""
+    
+    @pytest.fixture
+    def strategy(self):
+        """Hibrit strateji oluştur."""
+        config = {
+            'symbol': 'BTCUSDT',
+            'timeframe': '15m',
+            'stop_loss_pct': 2,
+            'take_profit_pct': 4,
+            'ai': {
+                'lookback_period': 60,
+                'prediction_horizon': 5,
+                'confidence_threshold': 0.6
+            },
+            'ml': {
+                'min_confidence': 0.40,
+                'position_sizing_method': 'kelly'
+            },
+            'momentum': {
+                'rsi_overbought': 65,
+                'rsi_oversold': 35,
+                'volume_multiplier': 1.5
+            },
+            'hybrid': {
+                'momentum_weight': 0.5,
+                'ml_weight': 0.5,
+                'min_combined_confidence': 0.45,
+                'require_agreement': False,
+                'agreement_bonus': 0.2,
+                'conflict_penalty': 0.5
+            }
+        }
+        return HybridStrategy(config)
+    
+    @pytest.fixture
+    def strict_strategy(self):
+        """Katı uyum gerektiren hibrit strateji oluştur."""
+        config = {
+            'symbol': 'BTCUSDT',
+            'timeframe': '15m',
+            'stop_loss_pct': 2,
+            'take_profit_pct': 4,
+            'ai': {
+                'lookback_period': 60,
+                'prediction_horizon': 5,
+                'confidence_threshold': 0.6
+            },
+            'ml': {
+                'min_confidence': 0.40,
+                'position_sizing_method': 'kelly'
+            },
+            'momentum': {
+                'rsi_overbought': 65,
+                'rsi_oversold': 35,
+                'volume_multiplier': 1.5
+            },
+            'hybrid': {
+                'momentum_weight': 0.5,
+                'ml_weight': 0.5,
+                'min_combined_confidence': 0.45,
+                'require_agreement': True,  # Katı mod
+                'agreement_bonus': 0.2,
+                'conflict_penalty': 0.5
+            }
+        }
+        return HybridStrategy(config)
+    
+    def test_strategy_name(self, strategy):
+        """Strateji ismi testi."""
+        assert strategy.name == 'HybridStrategy'
+    
+    def test_analyze_returns_trade_signal(self, strategy):
+        """Analiz sonucu TradeSignal döndürmeli."""
+        df = generate_test_data(100, 'up')
+        signal = strategy.analyze(df)
+        
+        assert isinstance(signal, TradeSignal)
+        assert signal.symbol == 'BTCUSDT'
+        assert signal.signal in [Signal.BUY, Signal.SELL, Signal.HOLD]
+    
+    def test_analyze_with_uptrend(self, strategy):
+        """Yükselen trendde analiz testi."""
+        df = generate_test_data(100, 'up')
+        signal = strategy.analyze(df)
+        
+        assert isinstance(signal, TradeSignal)
+        assert signal.metadata is not None
+        # Metadata'da uyum bilgisi olmalı
+        assert 'agreement' in signal.metadata
+    
+    def test_analyze_with_downtrend(self, strategy):
+        """Düşen trendde analiz testi."""
+        df = generate_test_data(100, 'down')
+        signal = strategy.analyze(df)
+        
+        assert isinstance(signal, TradeSignal)
+        assert signal.metadata is not None
+    
+    def test_analyze_insufficient_data(self, strategy):
+        """Yetersiz veri durumu testi."""
+        df = generate_test_data(30, 'up')
+        signal = strategy.analyze(df)
+        
+        assert signal.signal == Signal.HOLD
+        assert signal.confidence == 0.0
+        assert "Yetersiz veri" in signal.reason
+    
+    def test_metadata_contains_agreement_info(self, strategy):
+        """Metadata'da uyum bilgisi olmalı."""
+        df = generate_test_data(100, 'up')
+        signal = strategy.analyze(df)
+        
+        if signal.metadata:
+            assert 'agreement' in signal.metadata
+            assert signal.metadata['agreement'] in [
+                'full', 'conflict', 'partial_momentum', 'partial_ml', 'neutral', 'none'
+            ]
+    
+    def test_metadata_contains_direction_info(self, strategy):
+        """Metadata'da yön bilgileri olmalı."""
+        df = generate_test_data(100, 'up')
+        signal = strategy.analyze(df)
+        
+        if signal.metadata:
+            assert 'momentum_direction' in signal.metadata
+            assert 'ml_direction' in signal.metadata
+            assert signal.metadata['momentum_direction'] in ['up', 'down', 'neutral']
+            assert signal.metadata['ml_direction'] in ['up', 'down', 'neutral']
+    
+    def test_should_enter(self, strategy):
+        """Giriş kontrolü testi."""
+        df = generate_test_data(100, 'up')
+        result = strategy.should_enter(df)
+        
+        assert isinstance(result, bool)
+    
+    def test_should_exit_long(self, strategy):
+        """Long pozisyon çıkış kontrolü testi."""
+        df = generate_test_data(100, 'down')
+        result = strategy.should_exit(df, 'LONG')
+        
+        assert isinstance(result, bool)
+    
+    def test_should_exit_short(self, strategy):
+        """Short pozisyon çıkış kontrolü testi."""
+        df = generate_test_data(100, 'up')
+        result = strategy.should_exit(df, 'SHORT')
+        
+        assert isinstance(result, bool)
+    
+    def test_set_predictor(self, strategy):
+        """Predictor ayarlama testi."""
+        # Mock predictor
+        class MockPredictor:
+            def predict(self, data):
+                return {
+                    'direction': 'up',
+                    'confidence': 0.8,
+                    'predicted_price': 51000.0
+                }
+        
+        mock_predictor = MockPredictor()
+        strategy.set_predictor(mock_predictor)
+        
+        assert strategy.predictor is mock_predictor
+        assert strategy.ml_strategy.predictor is mock_predictor
+    
+    def test_calculate_stop_loss_long(self, strategy):
+        """Long pozisyon için stop-loss hesaplama testi."""
+        entry_price = 50000.0
+        stop_loss = strategy.calculate_stop_loss(entry_price, 'LONG')
+        
+        expected = entry_price * (1 - 2 / 100)  # %2 stop-loss
+        assert stop_loss == expected
+    
+    def test_calculate_stop_loss_short(self, strategy):
+        """Short pozisyon için stop-loss hesaplama testi."""
+        entry_price = 50000.0
+        stop_loss = strategy.calculate_stop_loss(entry_price, 'SHORT')
+        
+        expected = entry_price * (1 + 2 / 100)  # %2 stop-loss
+        assert stop_loss == expected
+    
+    def test_calculate_take_profit_long(self, strategy):
+        """Long pozisyon için take-profit hesaplama testi."""
+        entry_price = 50000.0
+        take_profit = strategy.calculate_take_profit(entry_price, 'LONG')
+        
+        expected = entry_price * (1 + 4 / 100)  # %4 take-profit
+        assert take_profit == expected
+    
+    def test_signal_history(self, strategy):
+        """Sinyal geçmişi testi."""
+        df = generate_test_data(100, 'up')
+        
+        # Birkaç analiz yap
+        for _ in range(5):
+            strategy.analyze(df)
+        
+        history = strategy.get_signal_history()
+        
+        assert len(history) == 5
+    
+    def test_strict_mode_requires_agreement(self, strict_strategy):
+        """Katı mod tam uyum gerektirmeli."""
+        df = generate_test_data(100, 'sideways')
+        signal = strict_strategy.analyze(df)
+        
+        # Katı modda, tam uyum yoksa sinyal düşük güvenli olmalı
+        # veya HOLD olmalı
+        if signal.metadata and signal.metadata.get('agreement') != 'full':
+            assert signal.confidence <= 0.3 or signal.signal == Signal.HOLD
+    
+    def test_hybrid_weights(self, strategy):
+        """Hibrit ağırlıklar doğru uygulanmalı."""
+        assert strategy.momentum_weight == 0.5
+        assert strategy.ml_weight == 0.5
+    
+    def test_confidence_bonus_on_agreement(self, strategy):
+        """Tam uyumda güven bonusu testi."""
+        assert strategy.agreement_bonus == 0.2
+    
+    def test_conflict_penalty(self, strategy):
+        """Çelişki cezası testi."""
+        assert strategy.conflict_penalty == 0.5
+    
+    def test_min_combined_confidence(self, strategy):
+        """Minimum kombine güven eşiği testi."""
+        assert strategy.min_combined_confidence == 0.45
 
 
 if __name__ == '__main__':
